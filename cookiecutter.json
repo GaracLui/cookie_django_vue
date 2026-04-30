@@ -1,0 +1,9 @@
+{
+  "project_name": "My Project",
+  "project_slug": "{{ cookiecutter.project_name.lower().replace(' ', '_') }}",
+  "project_type": ["ecommerce", "blog", "landing"],
+  "use_typescript": true,
+  "python_version": "3.13",
+  "postgres_version": "17-alpine",
+  "node_version": "20-slim"
+}
