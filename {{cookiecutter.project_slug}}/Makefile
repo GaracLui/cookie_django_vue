@@ -1,80 +1,141 @@
-# Makefile
-.PHONY: help up down build rebuild migrate mm superuser startapp shell logs-db logs-back logs-front clean clean-db
+# Makefile — lawyer project
+# Uses `podman compose` (Podman 5.x native, requires Docker Compose plugin)
+COMPOSE = podman compose
 
-# Default target
+.PHONY: help \
+        up dev down build rebuild \
+        migrate mm superuser startapp shell test \
+        logs logs-back logs-front logs-db \
+        ps fix-perms \
+        uv-add lint format \
+        clean clean-db
+
+# ─── Default ────────────────────────────────────────────────────────────────
 help:
-	@echo "Available commands:"
-	@echo "  make up         	- Start all containers in a detached terminal"
-	@echo "  make dev         	- Start all containers in a detached terminal "
-	@echo "  make logs	  	- "
-	@echo "  make down        	- Stop all containers"
-	@echo "  make build       	- Build backend and frontend images"
-	@echo "  make rebuild     	- Rebuild with no cache"
-	@echo "  make migrate     	- Run Django migrations"
-	@echo "  make mm          	- Make migrations (makemigrations)"
-	@echo "  make superuser   	- Create Django superuser"
-	@echo "  make startapp APP=name - Create a new Django app inside apps/"
-	@echo "  make shell       	- Open Django shell"
-	@echo "  make test        	- "
-	@echo "  make clean       	- Stop containers and remove volumes (data loss!)"
-	@echo "  make clean-db    	- Remove only the database volume"
+	@echo ""
+	@echo "Usage: make <target> [APP=name] [PKG=package]"
+	@echo ""
+	@echo "── Containers ───────────────────────────────────────────────────────"
+	@echo "  up            Start all containers (detached)"
+	@echo "  dev           Start all containers, rebuild images first"
+	@echo "  down          Stop and remove containers"
+	@echo "  build         Build all images"
+	@echo "  rebuild       Rebuild all images with --no-cache"
+	@echo "  ps            Show running service status"
+	@echo "  fix-perms     chmod -R 755 backend/ frontend/ (rootless Podman fix)"
+	@echo ""
+	@echo "── Django ───────────────────────────────────────────────────────────"
+	@echo "  migrate       Run pending migrations"
+	@echo "  mm            Make migrations  (APP=app_name for single app)"
+	@echo "  superuser     Create a Django superuser"
+	@echo "  startapp      Create a new app in apps/  (requires APP=name)"
+	@echo "  shell         Open Django shell"
+	@echo "  test          Run Django test suite  (APP=app_name for single app)"
+	@echo ""
+	@echo "── Dependencies ─────────────────────────────────────────────────────"
+	@echo "  uv-add        Add a backend package  (requires PKG=package)"
+	@echo ""
+	@echo "── Logs ─────────────────────────────────────────────────────────────"
+	@echo "  logs          Tail all services"
+	@echo "  logs-back     Tail backend only"
+	@echo "  logs-front    Tail frontend only"
+	@echo "  logs-db       Tail database only"
+	@echo ""
+	@echo "── Frontend ─────────────────────────────────────────────────────────"
+	@echo "  lint          Run ESLint on frontend"
+	@echo "  format        Run Prettier on frontend"
+	@echo ""
+	@echo "── Cleanup ──────────────────────────────────────────────────────────"
+	@echo "  clean         Remove ALL containers + volumes  (data loss!)"
+	@echo "  clean-db      Remove only the database volume  (data loss!)"
+	@echo ""
 
+# ─── Containers ─────────────────────────────────────────────────────────────
 up:
-	podman-compose up -d
-	
-dev:
-    	podman-compose up -d --build
+	$(COMPOSE) up -d
 
-logs:
-	podman-compose logs -f
+dev:
+	$(COMPOSE) up -d --build
 
 down:
-	podman-compose down
+	$(COMPOSE) down
 
 build:
-	podman-compose build
+	$(COMPOSE) build
 
 rebuild:
-	podman-compose build --no-cache
+	$(COMPOSE) build --no-cache
 
+ps:
+	$(COMPOSE) ps
+
+fix-perms:
+	chmod -R 755 backend/ frontend/
+
+# ─── Django ──────────────────────────────────────────────────────────────────
 migrate:
-	podman-compose exec backend uv run python manage.py migrate
+	$(COMPOSE) exec backend uv run python manage.py migrate
 
 mm:
-    	podman-compose exec backend uv run python manage.py makemigrations $(APP)
+	$(COMPOSE) exec backend uv run python manage.py makemigrations $(APP)
 
 superuser:
-	podman-compose exec backend uv run python manage.py createsuperuser
+	$(COMPOSE) exec backend uv run python manage.py createsuperuser
 
-# Create a new app inside apps/ (usage: make startapp APP=products)
 startapp:
 	@if [ -z "$(APP)" ]; then \
-	echo "Usage: make startapp APP=app_name"; \
-	exit 1; \
+		echo "Usage: make startapp APP=app_name"; \
+		exit 1; \
 	fi
-	podman-compose exec backend uv run python manage.py startapp $(APP) apps/$(APP)
-	@echo "IMPORTANT: Set name = 'apps.$(APP)' in apps/$(APP)/apps.py"
-	@echo "Then add 'apps.$(APP)' to INSTALLED_APPS in settings."
+	$(COMPOSE) exec backend uv run python manage.py startapp $(APP) apps/$(APP)
+	@echo ""
+	@echo "Next steps:"
+	@echo "  1. Set name = 'apps.$(APP)' in apps/$(APP)/apps.py"
+	@echo "  2. Add 'apps.$(APP)' to INSTALLED_APPS in settings/base.py"
 
 shell:
-	podman-compose exec backend uv run python manage.py shell
+	$(COMPOSE) exec backend uv run python manage.py shell
 
 test:
-    	podman-compose exec backend uv run python manage.py test
+	$(COMPOSE) exec backend uv run python manage.py test $(APP)
 
+# ─── Dependencies ────────────────────────────────────────────────────────────
+uv-add:
+	@if [ -z "$(PKG)" ]; then \
+		echo "Usage: make uv-add PKG=package_name"; \
+		exit 1; \
+	fi
+	cd backend && uv add $(PKG)
+	$(COMPOSE) build backend
+
+# ─── Logs ────────────────────────────────────────────────────────────────────
+logs:
+	$(COMPOSE) logs -f
+
+logs-back:
+	$(COMPOSE) logs -f backend
+
+logs-front:
+	$(COMPOSE) logs -f frontend
+
+logs-db:
+	$(COMPOSE) logs -f db
+
+# ─── Frontend ────────────────────────────────────────────────────────────────
+lint:
+	$(COMPOSE) exec frontend npm run lint
+
+format:
+	$(COMPOSE) exec frontend npm run format
+
+# ─── Cleanup ─────────────────────────────────────────────────────────────────
 clean:
-    	@echo "WARNING: This will delete ALL volumes including the database."
-    	@read -p "Are you sure? [y/N] " ans && [ "$$ans" = "y" ]
-    	podman-compose down -v
+	@echo "WARNING: This will delete ALL volumes including the database."
+	@read -p "Are you sure? [y/N] " ans && [ "$$ans" = "y" ]
+	$(COMPOSE) down -v
 
 clean-db:
 	@echo "WARNING: This will delete the database volume."
 	@read -p "Are you sure? [y/N] " ans && [ "$$ans" = "y" ]
-	podman-compose down -v --remove-orphans
-	podman-compose up -d db
-
-lint:
-	podman-compose exec frontend npm run lint
-
-format:
-	podman-compose exec frontend npm run format
+	$(COMPOSE) down -v --remove-orphans
+	$(COMPOSE) up -d db
