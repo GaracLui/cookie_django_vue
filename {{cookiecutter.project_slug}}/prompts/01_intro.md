@@ -24,7 +24,7 @@ This document defines the current architecture, coding conventions, and technica
 
 ## 2. Directory Structure
 ```
-elana/                      # Project root
+name_website/               # Project root
 ├── .env                    # Environment variables 
 ├── .env.example            # Template for .env
 ├── docker-compose.yml      # Service orchestration
@@ -70,6 +70,15 @@ elana/                      # Project root
 │ └── public/
 ```
 
+
+### 2.1 Planned Django Apps
+| App         | Purpose                              |
+|-------------|--------------------------------------|
+| `core`      | Shared base models, health endpoint |
+| `pages`     | Home, About, Services (static-like) |
+| `blog`      | Legal articles, guides              |
+| `contact`   | Consultation/contact form           |
+| `accounts`  | Lawyer profiles (optional client accounts) |
 ---
 
 ## 3. Docker / Podman Configuration Standards

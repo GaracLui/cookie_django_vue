@@ -8,8 +8,10 @@ __pycache__/
 *.egg-info/
 dist/
 build/
+.env
 .env.local
 .env.*.local
+.venv
 .venv/
 venv/
 .vscode/
@@ -19,3 +21,5 @@ venv/
 .coverage
 htmlcov/
 .git/
+__pycache__
+staticfiles/

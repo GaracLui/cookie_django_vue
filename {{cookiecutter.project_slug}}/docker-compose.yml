@@ -5,10 +5,8 @@ services:
       - postgres_data:/var/lib/postgresql/data/
     env_file:
       - .env
-    ports:
-      - "127.0.0.1:5432:5432"
     networks:
-      - ecommerce_network
+      - law_network
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 10s
@@ -16,12 +14,18 @@ services:
       retries: 5
 
   backend:
-    build: ./backend
-    user: "0:0"   # rootless Podman: bind-mount write permissions; remove for production
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      args:
+        UID: "${UID}"
+        GID: "${GID}"
+    userns_mode: "keep-id" # ← restores your host UID inside container
+    user: "${UID}:${GID}" # ← maps to your actual host user
     command: uv run python manage.py runserver 0.0.0.0:8000
     volumes:
       - ./backend:/app
-      - /app/.venv
+      - backend_venv:/app/.venv
     ports:
       - "8000:8000"
     env_file:
@@ -30,7 +34,7 @@ services:
       db:
         condition: service_healthy
     networks:
-      - ecommerce_network
+      - law_network
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8000/api/health || exit 1"]
       interval: 10s
@@ -38,22 +42,30 @@ services:
       retries: 5
 
   frontend:
-    build: ./frontend
-    user: "0:0"   # rootless Podman: bind-mount write permissions; remove for production
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        UID: "${UID}"
+        GID: "${GID}"
+    userns_mode: "keep-id" # ← restores your host UID inside container
+    user: "${UID}:${GID}" # ← maps to your actual host user
     volumes:
       - ./frontend:/app
-      - /app/node_modules
+      - frontend_modules:/app/node_modules
     ports:
       - "5173:5173"
     depends_on:
       backend:
         condition: service_healthy
     networks:
-      - ecommerce_network
+      - law_network
 
 volumes:
   postgres_data:
+  backend_venv:
+  frontend_modules:
 
 networks:
-  ecommerce_network:
+  law_network:
     driver: bridge
